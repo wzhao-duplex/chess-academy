@@ -38,7 +38,6 @@ const App: React.FC = () => {
     // Calculate captured pieces
     // This is a simplified calculation: starting pieces - current pieces
     const currentBoard = game.board().flat().filter(p => p !== null);
-    const standardPieces: PieceType[] = ['p','p','p','p','p','p','p','p','r','r','n','n','b','b','q','k'];
     
     const countPieces = (color: 'w' | 'b') => {
       const counts: Record<PieceType, number> = { p: 0, r: 0, n: 0, b: 0, q: 0, k: 0 };
@@ -67,7 +66,8 @@ const App: React.FC = () => {
     });
   }, [game]);
 
-  const onDrop = (sourceSquare: string, targetSquare: string) => {
+  // Fix: Updated onDrop signature to include 'piece' and match react-chessboard type requirements.
+  const onDrop = (sourceSquare: string, targetSquare: string, _piece: string) => {
     try {
       const move = game.move({
         from: sourceSquare,
@@ -77,9 +77,11 @@ const App: React.FC = () => {
 
       if (move === null) return false;
 
-      setGame(new Chess(game.fen()));
+      // Update the game state with a new instance to trigger React re-render.
+      const newGame = new Chess(game.fen());
+      setGame(newGame);
       updateGameState();
-      askCoach(game.fen(), move.san, game.turn());
+      askCoach(newGame.fen(), move.san, newGame.turn());
       return true;
     } catch (e) {
       return false;
@@ -170,7 +172,9 @@ const App: React.FC = () => {
 
             {/* Chess Board Container */}
             <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
+              {/* Fix: Added 'id' prop which is required by react-chessboard and ensures 'position' is validly recognized. */}
               <Chessboard 
+                id="BasicChessBoard"
                 position={game.fen()} 
                 onPieceDrop={onDrop}
                 customDarkSquareStyle={{ backgroundColor: '#3b82f6' }}
