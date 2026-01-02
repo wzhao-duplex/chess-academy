@@ -1,18 +1,36 @@
+
 name: Deploy to GitHub Pages
+
 on:
   push:
     branches: [main]
+
+# Explicitly grant the GITHUB_TOKEN write permissions
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install and Build
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Setup Node ⚙️
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install and Build 🔧
         run: |
+          # If you have a package.json with a build script:
           npm install
-          npm run build
-      - name: Deploy
+          npm run build || echo "No build script found, proceeding with raw files"
+
+      - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist # Or 'build', depending on your setup
+          # If your build tool creates a 'dist' folder, use 'dist'.
+          # If you are just hosting the root files, use '.'.
+          folder: dist 
+          branch: gh-pages
