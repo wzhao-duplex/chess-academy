@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Chess, Move } from 'chess.js';
+import React, { useState, useCallback } from 'react';
+import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { 
   Trophy, 
@@ -10,12 +10,11 @@ import {
   User, 
   Zap,
   Info,
-  ChevronRight,
   ChevronLeft,
   BrainCircuit
 } from 'lucide-react';
 import { getCoachAdvice } from './services/geminiService';
-import { GameState, CoachAdvice, PieceType } from './types';
+import { CoachAdvice, PieceType } from './types';
 
 const App: React.FC = () => {
   const [game, setGame] = useState(new Chess());
@@ -23,21 +22,11 @@ const App: React.FC = () => {
   const [isCoachThinking, setIsCoachThinking] = useState(false);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [captured, setCaptured] = useState<{ w: PieceType[], b: PieceType[] }>({ w: [], b: [] });
-  const [showHistory, setShowHistory] = useState(false);
 
-  // Sound effects (optional logic)
-  const playSound = (type: 'move' | 'capture' | 'check') => {
-    // Basic implementation placeholder
-  };
-
-  const updateGameState = useCallback(() => {
-    const history = game.history();
-    const fen = game.fen();
-    setMoveHistory(history);
-
-    // Calculate captured pieces
-    // This is a simplified calculation: starting pieces - current pieces
-    const currentBoard = game.board().flat().filter(p => p !== null);
+  const updateGameState = useCallback((currentGame: Chess) => {
+    setMoveHistory(currentGame.history());
+    
+    const currentBoard = currentGame.board().flat().filter(p => p !== null);
     
     const countPieces = (color: 'w' | 'b') => {
       const counts: Record<PieceType, number> = { p: 0, r: 0, n: 0, b: 0, q: 0, k: 0 };
@@ -50,7 +39,7 @@ const App: React.FC = () => {
     const whiteCounts = countPieces('w');
     const blackCounts = countPieces('b');
 
-    const getCaptured = (color: 'w' | 'b', counts: Record<PieceType, number>) => {
+    const getCaptured = (counts: Record<PieceType, number>) => {
       const caps: PieceType[] = [];
       const standard: Record<PieceType, number> = { p: 8, r: 2, n: 2, b: 2, q: 1, k: 1 };
       (Object.keys(standard) as PieceType[]).forEach(type => {
@@ -61,26 +50,24 @@ const App: React.FC = () => {
     };
 
     setCaptured({
-      w: getCaptured('w', whiteCounts),
-      b: getCaptured('b', blackCounts)
+      w: getCaptured(whiteCounts),
+      b: getCaptured(blackCounts)
     });
-  }, [game]);
+  }, []);
 
-  // Fix: Updated onDrop signature to include 'piece' and match react-chessboard type requirements.
-  const onDrop = (sourceSquare: string, targetSquare: string, _piece: string) => {
+  const onDrop = (sourceSquare: string, targetSquare: string): boolean => {
     try {
       const move = game.move({
         from: sourceSquare,
         to: targetSquare,
-        promotion: "q", // always promote to queen for simplicity in learning
+        promotion: "q",
       });
 
       if (move === null) return false;
 
-      // Update the game state with a new instance to trigger React re-render.
       const newGame = new Chess(game.fen());
       setGame(newGame);
-      updateGameState();
+      updateGameState(newGame);
       askCoach(newGame.fen(), move.san, newGame.turn());
       return true;
     } catch (e) {
@@ -105,8 +92,9 @@ const App: React.FC = () => {
 
   const undoMove = () => {
     game.undo();
-    setGame(new Chess(game.fen()));
-    updateGameState();
+    const newGame = new Chess(game.fen());
+    setGame(newGame);
+    updateGameState(newGame);
     setAdvice(null);
   };
 
@@ -116,7 +104,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-blue-50 p-4 md:p-8">
-      {/* Header */}
       <header className="w-full max-w-6xl flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-blue-600 rounded-2xl shadow-lg">
@@ -147,17 +134,15 @@ const App: React.FC = () => {
       </header>
 
       <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Side: Game Board */}
         <div className="lg:col-span-7 flex flex-col gap-4">
           <div className="bg-white p-6 rounded-3xl shadow-xl border border-blue-100 flex flex-col items-center">
-            {/* Opponent Info */}
             <div className="w-full flex justify-between items-center mb-4 px-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
                   <User className="text-gray-500 w-6 h-6" />
                 </div>
                 <div>
-                  <span className="font-bold text-gray-700">Black Pieces</span>
+                  <span className="font-bold text-gray-700">Opponent (Black)</span>
                   <div className="flex gap-1 text-lg leading-none mt-1">
                     {captured.w.map((p, i) => (
                       <span key={i} className="text-gray-400 opacity-60">{pieceIcons[p]}</span>
@@ -170,13 +155,12 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Chess Board Container */}
             <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
-              {/* Fix: Added 'id' prop which is required by react-chessboard and ensures 'position' is validly recognized. */}
+              {/* Added id and explicitly mapped onPieceDrop to resolve prop existence errors */}
               <Chessboard 
-                id="BasicChessBoard"
+                id="MainChessboard"
                 position={game.fen()} 
-                onPieceDrop={onDrop}
+                onPieceDrop={(source, target) => onDrop(source, target)}
                 customDarkSquareStyle={{ backgroundColor: '#3b82f6' }}
                 customLightSquareStyle={{ backgroundColor: '#f3f4f6' }}
                 animationDuration={300}
@@ -184,14 +168,13 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* Player Info */}
             <div className="w-full flex justify-between items-center mt-4 px-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center border-2 border-blue-400">
                   <User className="text-blue-600 w-6 h-6" />
                 </div>
                 <div>
-                  <span className="font-bold text-gray-700">Your Pieces (White)</span>
+                  <span className="font-bold text-gray-700">You (White)</span>
                   <div className="flex gap-1 text-lg leading-none mt-1">
                     {captured.b.map((p, i) => (
                       <span key={i} className="text-blue-600 opacity-80">{pieceIcons[p]}</span>
@@ -205,7 +188,6 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          {/* Game Status Message */}
           {(game.isCheckmate() || game.isDraw()) && (
             <div className="bg-yellow-400 p-4 rounded-2xl flex items-center gap-4 animate-bounce shadow-lg">
               <Trophy className="text-yellow-900 w-8 h-8" />
@@ -219,10 +201,7 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Right Side: Coach & Tools */}
         <div className="lg:col-span-5 flex flex-col gap-6">
-          
-          {/* Coach Advice Panel */}
           <section className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col border border-blue-100 flex-grow min-h-[400px]">
             <div className="bg-blue-600 p-4 flex items-center gap-3">
               <div className="bg-white p-2 rounded-xl">
@@ -290,7 +269,6 @@ const App: React.FC = () => {
             </div>
           </section>
 
-          {/* Move History / Stats */}
           <section className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -318,7 +296,6 @@ const App: React.FC = () => {
             </div>
           </section>
 
-          {/* Quick Learning Tip */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
             <div className="relative z-10">
               <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
@@ -332,11 +309,9 @@ const App: React.FC = () => {
               <Trophy className="w-32 h-32" />
             </div>
           </div>
-
         </div>
       </main>
 
-      {/* Footer Branding */}
       <footer className="mt-12 text-gray-400 text-sm pb-8 text-center">
         <p>Built with ❤️ for young grandmasters</p>
       </footer>

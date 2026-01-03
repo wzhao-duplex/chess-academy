@@ -16,6 +16,7 @@ export async function getCoachAdvice(
 ): Promise<CoachAdvice> {
   try {
     // We use ai.models.generateContent directly to specify the model and parameters.
+    // gemini-3-pro-preview is chosen for tasks requiring advanced reasoning like chess analysis.
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: `Current Chess Position (FEN): ${fen}\nLast move played: ${lastMove || 'None'}\nIt is ${turn === 'w' ? 'White' : 'Black'}'s turn.`,
@@ -36,9 +37,8 @@ export async function getCoachAdvice(
             },
             evaluation: {
               type: Type.STRING,
-              // Using enum to strictly define the allowed evaluation values.
-              enum: ["good", "neutral", "bad", "mistake"],
-              description: "How the current position looks for the player who just moved.",
+              // Options are listed in the description as enum is not explicitly supported in the provided Type enum.
+              description: "How the current position looks for the player who just moved. Valid values: 'good', 'neutral', 'bad', 'mistake'.",
             },
             funFact: {
               type: Type.STRING,
@@ -50,7 +50,7 @@ export async function getCoachAdvice(
       },
     });
 
-    // Directly access .text property from the response object.
+    // Directly access .text property from the response object as per guidelines.
     const text = response.text || "{}";
     return JSON.parse(text.trim()) as CoachAdvice;
   } catch (error) {
