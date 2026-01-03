@@ -1,6 +1,6 @@
 
-import React, { useState, useCallback } from 'react';
-import { Chess } from 'chess.js';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Chess, Square as ChessSquare } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { 
   Trophy, 
@@ -22,6 +22,10 @@ const App: React.FC = () => {
   const [isCoachThinking, setIsCoachThinking] = useState(false);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [captured, setCaptured] = useState<{ w: PieceType[], b: PieceType[] }>({ w: [], b: [] });
+  
+  // State for Click-to-Move
+  const [moveFrom, setMoveFrom] = useState<string | null>(null);
+  const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
 
   const updateGameState = useCallback((currentGame: Chess) => {
     setMoveHistory(currentGame.history());
@@ -55,23 +59,82 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const onDrop = (sourceSquare: string, targetSquare: string): boolean => {
+  const makeAMove = useCallback((moveData: any) => {
     try {
-      const move = game.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: "q",
-      });
-
-      if (move === null) return false;
-
-      const newGame = new Chess(game.fen());
-      setGame(newGame);
-      updateGameState(newGame);
-      askCoach(newGame.fen(), move.san, newGame.turn());
-      return true;
+      const gameCopy = new Chess(game.fen());
+      const result = gameCopy.move(moveData);
+      
+      if (result) {
+        setGame(gameCopy);
+        updateGameState(gameCopy);
+        askCoach(gameCopy.fen(), result.san, gameCopy.turn());
+        setMoveFrom(null);
+        setOptionSquares({});
+        return true;
+      }
     } catch (e) {
+      console.error("Invalid move attempted", e);
+    }
+    return false;
+  }, [game, updateGameState]);
+
+  const onDrop = (sourceSquare: string, targetSquare: string): boolean => {
+    return makeAMove({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q",
+    });
+  };
+
+  const getMoveOptions = useCallback((square: string) => {
+    const moves = game.moves({
+      square: square as ChessSquare,
+      verbose: true,
+    });
+    if (moves.length === 0) {
+      setOptionSquares({});
       return false;
+    }
+
+    const newSquares: Record<string, any> = {};
+    moves.forEach((move) => {
+      newSquares[move.to] = {
+        background:
+          game.get(move.to as ChessSquare) && game.get(move.to as ChessSquare)?.color !== game.get(square as ChessSquare)?.color
+            ? "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)"
+            : "radial-gradient(circle, rgba(0,0,0,.1) 20%, transparent 20%)",
+        borderRadius: "50%",
+      };
+    });
+    newSquares[square] = {
+      background: "rgba(255, 255, 0, 0.4)",
+    };
+    setOptionSquares(newSquares);
+    return true;
+  }, [game]);
+
+  const onSquareClick = (square: string) => {
+    // If we haven't selected a piece yet
+    if (!moveFrom) {
+      const hasOptions = getMoveOptions(square);
+      if (hasOptions) setMoveFrom(square);
+      return;
+    }
+
+    // Attempting a move to the clicked square
+    const move = makeAMove({
+      from: moveFrom,
+      to: square,
+      promotion: "q",
+    });
+
+    if (!move) {
+      const hasOptions = getMoveOptions(square);
+      if (hasOptions) setMoveFrom(square);
+      else {
+        setMoveFrom(null);
+        setOptionSquares({});
+      }
     }
   };
 
@@ -88,22 +151,23 @@ const App: React.FC = () => {
     setAdvice(null);
     setMoveHistory([]);
     setCaptured({ w: [], b: [] });
+    setMoveFrom(null);
+    setOptionSquares({});
   };
 
   const undoMove = () => {
-    game.undo();
-    const newGame = new Chess(game.fen());
-    setGame(newGame);
-    updateGameState(newGame);
+    const gameCopy = new Chess(game.fen());
+    gameCopy.undo();
+    setGame(gameCopy);
+    updateGameState(gameCopy);
     setAdvice(null);
+    setMoveFrom(null);
+    setOptionSquares({});
   };
 
   const pieceIcons: Record<PieceType, string> = {
     p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚'
   };
-
-  // Safe cast for production build stability
-  const ChessboardComponent = Chessboard as any;
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-blue-50 p-4 md:p-8">
@@ -159,13 +223,15 @@ const App: React.FC = () => {
             </div>
 
             <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
-              <ChessboardComponent 
-                id="main-chessboard"
+              {/* Fix: Removed id prop because it is not expected by Chessboard component types */}
+              <Chessboard 
                 position={game.fen()} 
-                onPieceDrop={(source: string, target: string) => onDrop(source, target)}
+                onPieceDrop={onDrop}
+                onSquareClick={onSquareClick}
+                customSquareStyles={optionSquares}
                 customDarkSquareStyle={{ backgroundColor: '#3b82f6' }}
                 customLightSquareStyle={{ backgroundColor: '#f3f4f6' }}
-                animationDuration={300}
+                animationDuration={200}
                 boardOrientation="white"
               />
             </div>
