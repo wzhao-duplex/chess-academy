@@ -102,7 +102,7 @@ const App: React.FC = () => {
     p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚'
   };
 
-  // Type-safe cast for Chessboard component to bypass Environment specific prop errors
+  // Safe cast for production build stability
   const ChessboardComponent = Chessboard as any;
 
   return (
@@ -162,7 +162,7 @@ const App: React.FC = () => {
               <ChessboardComponent 
                 id="main-chessboard"
                 position={game.fen()} 
-                onPieceDrop={onDrop}
+                onPieceDrop={(source: string, target: string) => onDrop(source, target)}
                 customDarkSquareStyle={{ backgroundColor: '#3b82f6' }}
                 customLightSquareStyle={{ backgroundColor: '#f3f4f6' }}
                 animationDuration={300}
