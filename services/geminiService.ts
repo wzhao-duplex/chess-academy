@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { CoachAdvice } from "../types";
 
@@ -15,13 +14,12 @@ export async function getCoachAdvice(
   turn: string
 ): Promise<CoachAdvice> {
   try {
-    // We use ai.models.generateContent directly to specify the model and parameters.
-    // gemini-3-pro-preview is chosen for tasks requiring advanced reasoning like chess analysis.
+    // Directly call ai.models.generateContent to specify the model and parameters.
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: `Current Chess Position (FEN): ${fen}\nLast move played: ${lastMove || 'None'}\nIt is ${turn === 'w' ? 'White' : 'Black'}'s turn.`,
       config: {
-        // System instruction defines the persona and output constraints.
+        // System instruction defines the coach's persona and helpful tone.
         systemInstruction: "You are a friendly and encouraging chess coach for a young child learning the game. Analyze the position and provide helpful advice, explanation, a suggested next move, and a fun fact.",
         responseMimeType: "application/json",
         responseSchema: {
@@ -37,7 +35,6 @@ export async function getCoachAdvice(
             },
             evaluation: {
               type: Type.STRING,
-              // Options are listed in the description as enum is not explicitly supported in the provided Type enum.
               description: "How the current position looks for the player who just moved. Valid values: 'good', 'neutral', 'bad', 'mistake'.",
             },
             funFact: {
@@ -46,16 +43,16 @@ export async function getCoachAdvice(
             },
           },
           required: ["explanation", "evaluation"],
+          propertyOrdering: ["explanation", "suggestedMove", "evaluation", "funFact"],
         },
       },
     });
 
-    // Directly access .text property from the response object as per guidelines.
+    // Access the .text property directly from the response object.
     const text = response.text || "{}";
     return JSON.parse(text.trim()) as CoachAdvice;
   } catch (error) {
     console.error("Gemini Coach Error:", error);
-    // Graceful fallback if the AI response fails.
     return {
       explanation: "I'm thinking hard about the board! Keep playing while I analyze.",
       evaluation: "neutral",

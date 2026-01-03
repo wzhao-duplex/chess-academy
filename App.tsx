@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [captured, setCaptured] = useState<{ w: PieceType[], b: PieceType[] }>({ w: [], b: [] });
   
-  // State for Click-to-Move
+  // State for Click-to-Move / Tap interaction
   const [moveFrom, setMoveFrom] = useState<string | null>(null);
   const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
 
@@ -59,7 +59,14 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const makeAMove = useCallback((moveData: any) => {
+  const askCoach = async (fen: string, lastMove: string, turn: string) => {
+    setIsCoachThinking(true);
+    const newAdvice = await getCoachAdvice(fen, lastMove, turn);
+    setAdvice(newAdvice);
+    setIsCoachThinking(false);
+  };
+
+  const makeAMove = useCallback((moveData: { from: string; to: string; promotion?: string }) => {
     try {
       const gameCopy = new Chess(game.fen());
       const result = gameCopy.move(moveData);
@@ -114,21 +121,19 @@ const App: React.FC = () => {
   }, [game]);
 
   const onSquareClick = (square: string) => {
-    // If we haven't selected a piece yet
     if (!moveFrom) {
       const hasOptions = getMoveOptions(square);
       if (hasOptions) setMoveFrom(square);
       return;
     }
 
-    // Attempting a move to the clicked square
-    const move = makeAMove({
+    const moveSucceeded = makeAMove({
       from: moveFrom,
       to: square,
       promotion: "q",
     });
 
-    if (!move) {
+    if (!moveSucceeded) {
       const hasOptions = getMoveOptions(square);
       if (hasOptions) setMoveFrom(square);
       else {
@@ -136,13 +141,6 @@ const App: React.FC = () => {
         setOptionSquares({});
       }
     }
-  };
-
-  const askCoach = async (fen: string, lastMove: string, turn: string) => {
-    setIsCoachThinking(true);
-    const newAdvice = await getCoachAdvice(fen, lastMove, turn);
-    setAdvice(newAdvice);
-    setIsCoachThinking(false);
   };
 
   const resetGame = () => {
@@ -223,7 +221,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
-              {/* Fix: Removed id prop because it is not expected by Chessboard component types */}
+              {/* Fix: Removed 'id' prop to resolve type error, as it's not present in the current ChessboardProps definition */}
               <Chessboard 
                 position={game.fen()} 
                 onPieceDrop={onDrop}
