@@ -1,7 +1,6 @@
-
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Chess, Square as ChessSquare } from 'chess.js';
-import { Chessboard } from 'react-chessboard';
+import { Chessboard as BaseChessboard } from 'react-chessboard';
 import { 
   Trophy, 
   RotateCcw, 
@@ -15,6 +14,9 @@ import {
 } from 'lucide-react';
 import { getCoachAdvice } from './services/geminiService';
 import { CoachAdvice, PieceType } from './types';
+
+// Bypass type clashing between react-chessboard and React 19 IntrinsicAttributes
+const Chessboard = BaseChessboard as any;
 
 const App: React.FC = () => {
   const [game, setGame] = useState(new Chess());
@@ -221,7 +223,6 @@ const App: React.FC = () => {
             </div>
 
             <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
-              {/* Fix: Removed 'id' prop to resolve type error, as it's not present in the current ChessboardProps definition */}
               <Chessboard 
                 position={game.fen()} 
                 onPieceDrop={onDrop}
