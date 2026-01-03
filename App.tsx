@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Chess, Square as ChessSquare } from 'chess.js';
-import { Chessboard as BaseChessboard } from 'react-chessboard';
+import { Chessboard as ReactChessboard } from 'react-chessboard';
 import { 
   Trophy, 
   RotateCcw, 
@@ -15,8 +15,11 @@ import {
 import { getCoachAdvice } from './services/geminiService';
 import { CoachAdvice, PieceType } from './types';
 
-// Bypass type clashing between react-chessboard and React 19 IntrinsicAttributes
-const Chessboard = BaseChessboard as any;
+/**
+ * Casting Chessboard to any to bypass compatibility issues between 
+ * react-chessboard types and React 19 'IntrinsicAttributes' during build.
+ */
+const Chessboard = ReactChessboard as any;
 
 const App: React.FC = () => {
   const [game, setGame] = useState(new Chess());
@@ -25,7 +28,7 @@ const App: React.FC = () => {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [captured, setCaptured] = useState<{ w: PieceType[], b: PieceType[] }>({ w: [], b: [] });
   
-  // State for Click-to-Move interaction
+  // State for interaction logic (highlights and click-to-move)
   const [moveFrom, setMoveFrom] = useState<string | null>(null);
   const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
 
@@ -77,19 +80,18 @@ const App: React.FC = () => {
         setGame(gameCopy);
         updateGameState(gameCopy);
         askCoach(gameCopy.fen(), result.san, gameCopy.turn());
-        // Reset interaction state
+        // Clear interaction state after successful move
         setMoveFrom(null);
         setOptionSquares({});
         return true;
       }
     } catch (e) {
-      // Catching invalid moves (e.g., trying to move into check)
       console.warn("Invalid move attempted", e);
     }
     return false;
   }, [game, updateGameState]);
 
-  // Handle drag and drop
+  // Handle traditional drag and drop
   const onDrop = (sourceSquare: string, targetSquare: string): boolean => {
     return makeAMove({
       from: sourceSquare,
@@ -98,8 +100,8 @@ const App: React.FC = () => {
     });
   };
 
-  // Helper to show valid moves when a square is clicked
-  const getMoveOptions = useCallback((square: string) => {
+  // Logic to show valid move dots when a square is tapped/clicked
+  const showMoveOptions = useCallback((square: string) => {
     const moves = game.moves({
       square: square as ChessSquare,
       verbose: true,
@@ -130,25 +132,23 @@ const App: React.FC = () => {
     return true;
   }, [game]);
 
-  // Handle square clicks for "Click-to-Move"
+  // Handle square clicks for "Click-to-Move" (best for learning/mobile)
   const onSquareClick = (square: string) => {
-    // 1. If we haven't selected a piece yet
     if (!moveFrom) {
-      const hasOptions = getMoveOptions(square);
+      const hasOptions = showMoveOptions(square);
       if (hasOptions) setMoveFrom(square);
       return;
     }
 
-    // 2. If we already have a piece selected, try to move it
     const moveSucceeded = makeAMove({
       from: moveFrom,
       to: square,
       promotion: "q",
     });
 
-    // 3. If move failed (e.g. clicked another of our own pieces), select the new piece instead
+    // If click didn't result in a move, check if the clicked square is another piece we can select
     if (!moveSucceeded) {
-      const hasOptions = getMoveOptions(square);
+      const hasOptions = showMoveOptions(square);
       if (hasOptions) setMoveFrom(square);
       else {
         setMoveFrom(null);
@@ -190,7 +190,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Chess Academy</h1>
-            <p className="text-blue-600 text-sm font-medium">Your learning journey begins here!</p>
+            <p className="text-blue-600 text-sm font-medium">Learn and Play!</p>
           </div>
         </div>
 
@@ -222,28 +222,28 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <span className="font-bold text-gray-700">Opponent (Black)</span>
-                  <div className="flex gap-1 text-lg leading-none mt-1">
+                  <div className="flex gap-1 text-2xl leading-none mt-1">
                     {captured.w.map((p, i) => (
-                      <span key={i} className="text-gray-400 opacity-60 text-2xl">{pieceIcons[p]}</span>
+                      <span key={i} className="text-gray-300">{pieceIcons[p]}</span>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className={`px-4 py-1 rounded-full text-sm font-bold ${game.turn() === 'b' ? 'bg-black text-white animate-pulse' : 'bg-gray-100 text-gray-400'}`}>
-                Black's Turn
+              <div className={`px-4 py-1 rounded-full text-sm font-bold ${game.turn() === 'b' ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
+                {game.turn() === 'b' ? "Black's Turn" : "Wait..."}
               </div>
             </div>
 
-            <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
+            <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600 bg-white">
               <Chessboard 
-                id="main-chessboard"
+                id="learningBoard"
                 position={game.fen()} 
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
                 customSquareStyles={optionSquares}
                 customDarkSquareStyle={{ backgroundColor: '#3b82f6' }}
                 customLightSquareStyle={{ backgroundColor: '#f3f4f6' }}
-                animationDuration={200}
+                animationDuration={300}
                 boardOrientation="white"
               />
             </div>
@@ -255,15 +255,15 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <span className="font-bold text-gray-700">You (White)</span>
-                  <div className="flex gap-1 text-lg leading-none mt-1">
+                  <div className="flex gap-1 text-2xl leading-none mt-1">
                     {captured.b.map((p, i) => (
-                      <span key={i} className="text-blue-600 opacity-80 text-2xl">{pieceIcons[p]}</span>
+                      <span key={i} className="text-blue-600">{pieceIcons[p]}</span>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className={`px-4 py-1 rounded-full text-sm font-bold ${game.turn() === 'w' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
-                {game.turn() === 'w' ? "Your Turn!" : "Waiting..."}
+              <div className={`px-4 py-1 rounded-full text-sm font-bold ${game.turn() === 'w' ? 'bg-blue-600 text-white shadow-lg animate-pulse' : 'bg-gray-100 text-gray-400'}`}>
+                {game.turn() === 'w' ? "Your Turn!" : "Thinking..."}
               </div>
             </div>
           </div>
@@ -273,9 +273,8 @@ const App: React.FC = () => {
               <Trophy className="text-yellow-900 w-8 h-8" />
               <div>
                 <h3 className="font-bold text-yellow-900 text-lg">
-                  {game.isCheckmate() ? (game.turn() === 'w' ? "Black Wins!" : "White Wins!") : "It's a Draw!"}
+                  {game.isCheckmate() ? (game.turn() === 'w' ? "Game Over! Black Won" : "Checkmate! You Won!") : "It's a Draw!"}
                 </h3>
-                <p className="text-yellow-800 text-sm">Amazing game! Ready for another round?</p>
               </div>
             </div>
           )}
@@ -287,12 +286,12 @@ const App: React.FC = () => {
               <div className="bg-white p-2 rounded-xl">
                 <BrainCircuit className="text-blue-600 w-6 h-6" />
               </div>
-              <h2 className="text-white font-bold text-lg">AI Chess Coach</h2>
+              <h2 className="text-white font-bold text-lg">AI Coach</h2>
               {isCoachThinking && (
                 <div className="ml-auto flex gap-1">
-                  <div className="w-2 h-2 bg-white rounded-full animate-bounce delay-75"></div>
-                  <div className="w-2 h-2 bg-white rounded-full animate-bounce delay-150"></div>
-                  <div className="w-2 h-2 bg-white rounded-full animate-bounce delay-300"></div>
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></div>
                 </div>
               )}
             </div>
@@ -301,7 +300,7 @@ const App: React.FC = () => {
               {advice ? (
                 <>
                   <div className="bg-blue-50 p-4 rounded-2xl border-l-4 border-blue-400">
-                    <p className="text-gray-700 leading-relaxed italic">
+                    <p className="text-gray-700 leading-relaxed italic text-lg">
                       "{advice.explanation}"
                     </p>
                   </div>
@@ -312,8 +311,8 @@ const App: React.FC = () => {
                         <Zap className="text-white w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-green-800 text-xs font-bold uppercase tracking-wider">Coach Suggestion</p>
-                        <p className="text-green-900 font-bold text-lg">Try moving {advice.suggestedMove}!</p>
+                        <p className="text-green-800 text-xs font-bold uppercase">Try this</p>
+                        <p className="text-green-900 font-bold text-xl">{advice.suggestedMove}</p>
                       </div>
                     </div>
                   )}
@@ -324,16 +323,11 @@ const App: React.FC = () => {
                         <Info className="text-yellow-900 w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-yellow-900 text-xs font-bold uppercase tracking-wider">Did you know?</p>
+                        <p className="text-yellow-900 text-xs font-bold uppercase">Chess Fact</p>
                         <p className="text-yellow-800 text-sm">{advice.funFact}</p>
                       </div>
                     </div>
                   )}
-
-                  <div className="flex gap-2 items-center text-xs font-bold text-gray-400 uppercase tracking-widest mt-auto pt-4 border-t border-gray-100">
-                    <MessageCircle className="w-4 h-4" />
-                    Coach is observing...
-                  </div>
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
@@ -341,8 +335,8 @@ const App: React.FC = () => {
                     <BrainCircuit className="text-blue-400 w-10 h-10" />
                   </div>
                   <div>
-                    <h3 className="text-gray-400 font-bold text-lg">Make a move!</h3>
-                    <p className="text-gray-400 text-sm">I'll give you tips as you play.</p>
+                    <h3 className="text-gray-400 font-bold text-lg">Make your move!</h3>
+                    <p className="text-gray-400 text-sm">I'll help you win!</p>
                   </div>
                 </div>
               )}
@@ -353,11 +347,8 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <History className="text-gray-500 w-5 h-5" />
-                <h3 className="font-bold text-gray-700">Move History</h3>
+                <h3 className="font-bold text-gray-700">Moves</h3>
               </div>
-              <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 font-bold">
-                {Math.ceil(moveHistory.length / 2)} Rounds
-              </span>
             </div>
             
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto scroll-hide">
@@ -365,35 +356,21 @@ const App: React.FC = () => {
                 moveHistory.map((m, i) => (
                   <span 
                     key={i} 
-                    className={`px-3 py-1 rounded-lg text-sm font-medium border ${i % 2 === 0 ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-gray-50 border-gray-100 text-gray-600'}`}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium border ${i % 2 === 0 ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}
                   >
                     {Math.floor(i/2) + 1}. {m}
                   </span>
                 ))
               ) : (
-                <p className="text-gray-400 text-sm italic">No moves yet. Good luck!</p>
+                <p className="text-gray-400 text-sm italic">Move a piece to start!</p>
               )}
             </div>
           </section>
-
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-              <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
-                <Info className="w-5 h-5" /> Quick Rule
-              </h4>
-              <p className="text-blue-100 text-sm">
-                Control the center of the board (the four middle squares) to make your pieces stronger!
-              </p>
-            </div>
-            <div className="absolute -right-4 -bottom-4 opacity-10">
-              <Trophy className="w-32 h-32" />
-            </div>
-          </div>
         </div>
       </main>
 
       <footer className="mt-12 text-gray-400 text-sm pb-8 text-center">
-        <p>Built with ❤️ for young grandmasters</p>
+        <p>Your child is the next Grandmaster! 🏆</p>
       </footer>
     </div>
   );
