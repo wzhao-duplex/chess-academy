@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [captured, setCaptured] = useState<{ w: PieceType[], b: PieceType[] }>({ w: [], b: [] });
   
-  // State for Click-to-Move / Tap interaction
+  // State for Click-to-Move interaction
   const [moveFrom, setMoveFrom] = useState<string | null>(null);
   const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
 
@@ -77,16 +77,19 @@ const App: React.FC = () => {
         setGame(gameCopy);
         updateGameState(gameCopy);
         askCoach(gameCopy.fen(), result.san, gameCopy.turn());
+        // Reset interaction state
         setMoveFrom(null);
         setOptionSquares({});
         return true;
       }
     } catch (e) {
-      console.error("Invalid move attempted", e);
+      // Catching invalid moves (e.g., trying to move into check)
+      console.warn("Invalid move attempted", e);
     }
     return false;
   }, [game, updateGameState]);
 
+  // Handle drag and drop
   const onDrop = (sourceSquare: string, targetSquare: string): boolean => {
     return makeAMove({
       from: sourceSquare,
@@ -95,11 +98,13 @@ const App: React.FC = () => {
     });
   };
 
+  // Helper to show valid moves when a square is clicked
   const getMoveOptions = useCallback((square: string) => {
     const moves = game.moves({
       square: square as ChessSquare,
       verbose: true,
     });
+    
     if (moves.length === 0) {
       setOptionSquares({});
       return false;
@@ -115,26 +120,33 @@ const App: React.FC = () => {
         borderRadius: "50%",
       };
     });
+    
+    // Highlight the selected square
     newSquares[square] = {
       background: "rgba(255, 255, 0, 0.4)",
     };
+    
     setOptionSquares(newSquares);
     return true;
   }, [game]);
 
+  // Handle square clicks for "Click-to-Move"
   const onSquareClick = (square: string) => {
+    // 1. If we haven't selected a piece yet
     if (!moveFrom) {
       const hasOptions = getMoveOptions(square);
       if (hasOptions) setMoveFrom(square);
       return;
     }
 
+    // 2. If we already have a piece selected, try to move it
     const moveSucceeded = makeAMove({
       from: moveFrom,
       to: square,
       promotion: "q",
     });
 
+    // 3. If move failed (e.g. clicked another of our own pieces), select the new piece instead
     if (!moveSucceeded) {
       const hasOptions = getMoveOptions(square);
       if (hasOptions) setMoveFrom(square);
@@ -212,18 +224,19 @@ const App: React.FC = () => {
                   <span className="font-bold text-gray-700">Opponent (Black)</span>
                   <div className="flex gap-1 text-lg leading-none mt-1">
                     {captured.w.map((p, i) => (
-                      <span key={i} className="text-gray-400 opacity-60">{pieceIcons[p]}</span>
+                      <span key={i} className="text-gray-400 opacity-60 text-2xl">{pieceIcons[p]}</span>
                     ))}
                   </div>
                 </div>
               </div>
               <div className={`px-4 py-1 rounded-full text-sm font-bold ${game.turn() === 'b' ? 'bg-black text-white animate-pulse' : 'bg-gray-100 text-gray-400'}`}>
-                Thinking...
+                Black's Turn
               </div>
             </div>
 
             <div className="w-full aspect-square max-w-[500px] shadow-2xl rounded-lg overflow-hidden border-4 border-blue-600">
               <Chessboard 
+                id="main-chessboard"
                 position={game.fen()} 
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
@@ -244,13 +257,13 @@ const App: React.FC = () => {
                   <span className="font-bold text-gray-700">You (White)</span>
                   <div className="flex gap-1 text-lg leading-none mt-1">
                     {captured.b.map((p, i) => (
-                      <span key={i} className="text-blue-600 opacity-80">{pieceIcons[p]}</span>
+                      <span key={i} className="text-blue-600 opacity-80 text-2xl">{pieceIcons[p]}</span>
                     ))}
                   </div>
                 </div>
               </div>
               <div className={`px-4 py-1 rounded-full text-sm font-bold ${game.turn() === 'w' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
-                {game.turn() === 'w' ? "Your Turn!" : "Wait..."}
+                {game.turn() === 'w' ? "Your Turn!" : "Waiting..."}
               </div>
             </div>
           </div>
