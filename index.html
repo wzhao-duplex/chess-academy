@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Chess Academy</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,6 +11,9 @@
             font-family: 'Quicksand', sans-serif;
             background: #f0f9ff;
             touch-action: manipulation;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
         }
         .scroll-hide::-webkit-scrollbar {
             display: none;
@@ -19,8 +22,29 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        /* Crucial fix for mobile clickability */
+        #academyBoard {
+            pointer-events: auto !important;
+            touch-action: none;
+        }
     </style>
-  <script type="module" crossorigin src="/chess-academy/assets/index-DXDC8-DK.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "chess.js": "https://esm.sh/chess.js@^1.4.0",
+    "react-chessboard": "https://esm.sh/react-chessboard@^5.8.6"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/chess-academy/assets/index-5-D3mPyM.js"></script>
 </head>
 <body>
     <div id="root"></div>
